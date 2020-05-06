@@ -21,7 +21,15 @@ namespace SoftEngine
         /// <value>
         /// The vertices.
         /// </value>
-        public Vector3[] Vertices { get; set; }
+        public Vector3[] Vertices { get; private set; }
+
+        /// <summary>
+        /// Gets or sets the faces.
+        /// </summary>
+        /// <value>
+        /// The faces.
+        /// </value>
+        public Face[] Faces { get; set; }
 
         /// <summary>
         /// Gets or sets the position.
@@ -44,9 +52,11 @@ namespace SoftEngine
         /// </summary>
         /// <param name="name">The name.</param>
         /// <param name="verticesCount">The vertices count.</param>
-        public Mesh(string name, int verticesCount)
+        /// <param name="facesCount">The faces count.</param>
+        public Mesh(string name, int verticesCount, int facesCount)
         {
             Vertices = new Vector3[verticesCount];
+            Faces = new Face[facesCount];
             Name = name;
         }
     }

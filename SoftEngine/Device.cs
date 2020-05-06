@@ -1,4 +1,5 @@
 ﻿using SharpDX;
+using System;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.UI.Xaml.Media.Imaging;
 
@@ -89,11 +90,11 @@ namespace SoftEngine
         /// in 2D coordinates using the transformation matrix
         /// </summary>
         /// <param name="coordinates">The coordinates.</param>
-        /// <param name="transformationMatrix">The transformation matrix.</param>
+        /// <param name="transformMatrix">The transformation matrix.</param>
         /// <returns></returns>
-        public Vector2 Project(Vector3 coordinates, Matrix transformationMatrix)
+        public Vector2 Project(Vector3 coordinates, Matrix transformMatrix)
         {
-            var point = Vector3.TransformCoordinate(coordinates, transformationMatrix);
+            var point = Vector3.TransformCoordinate(coordinates, transformMatrix);
 
             // The transformed coordinates will be based on coordinate system
             // starting on the center of the screen. But drawing on screen normally starts
@@ -117,6 +118,62 @@ namespace SoftEngine
             }
         }
 
+        /// <summary>
+        /// Draws the line between 2 vertices
+        /// </summary>
+        /// <param name="point0">The point0.</param>
+        /// <param name="point1">The point1.</param>
+        public void DrawLine(Vector2 point0, Vector2 point1)
+        {
+            var distance = (point1 - point0).Length();
+
+            if (distance < 2)
+                return;
+
+            // Find the middle point between first and second point
+            Vector2 middlePoint = point0 + (point1 - point0) / 2;
+            DrawPoint(middlePoint);
+
+            // Recursive calls between (point0 and middle point) and (middle point and point1)
+            DrawLine(point0, middlePoint);
+            DrawLine(middlePoint, point1);
+        }
+
+        /// <summary>
+        /// Draws the bline. Bresenham's algorithm
+        /// </summary>
+        /// <param name="point0">The point0.</param>
+        /// <param name="point1">The point1.</param>
+        public void DrawBLine(Vector2 point0, Vector2 point1)
+        {
+            int x0 = (int)point0.X;
+            int y0 = (int)point0.Y;
+            int x1 = (int)point1.X;
+            int y1 = (int)point1.Y;
+
+            var dx = Math.Abs(x1 - x0);
+            var dy = Math.Abs(y1 - y0);
+            var sx = (x0 < x1) ? 1 : -1;
+            var sy = (y0 < y1) ? 1 : -1;
+            var err = dx - dy;
+
+            while (true)
+            {
+                DrawPoint(new Vector2(x0, y0));
+
+                if ((x0 == x1) && (y0 == y1)) break;
+                var e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; x0 += sx; }
+                if (e2 < dx) { err += dx; y0 += sy; }
+            }
+        }
+
+        /// <summary>
+        /// The main method of the engine that re-compute each vertex projection
+        /// during each frame
+        /// </summary>
+        /// <param name="camera">The camera.</param>
+        /// <param name="meshes">The meshes.</param>
         public void Render(Camera camera, params Mesh[] meshes)
         {
             var viewMatrix = Matrix.LookAtLH(camera.Position, camera.Target, Vector3.UnitY);
@@ -140,6 +197,34 @@ namespace SoftEngine
                     var point = Project(vertex, transformMatrix);
                     // Then we can draw on screen
                     DrawPoint(point);
+                }
+
+                /*for (int i = 0; i < mesh.Vertices.Length - 1; i++)
+                {
+                    var point0 = Project(mesh.Vertices[i], transformMatrix);
+                    var point1 = Project(mesh.Vertices[i + 1], transformMatrix);
+                    DrawLine(point0, point1);
+                }*/
+
+                foreach (var face in mesh.Faces)
+                {
+                    var vertexA = mesh.Vertices[face.A];
+                    var vertexB = mesh.Vertices[face.B];
+                    var vertexC = mesh.Vertices[face.C];
+
+                    var pixelA = Project(vertexA, transformMatrix);
+                    var pixelB = Project(vertexB, transformMatrix);
+                    var pixelC = Project(vertexC, transformMatrix);
+
+                    // Default Algotrith
+                    DrawLine(pixelA, pixelB);
+                    DrawLine(pixelB, pixelC);
+                    DrawLine(pixelC, pixelA);
+
+                    // Bresenham's Algorithm
+                    //DrawBLine(pixelA, pixelB);
+                    //DrawBLine(pixelB, pixelC);
+                    //DrawBLine(pixelC, pixelA);
                 }
             }
         }
