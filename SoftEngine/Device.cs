@@ -28,6 +28,7 @@ namespace SoftEngine
         private readonly float[] depthBuffer;
         private readonly int renderHeight;
         private readonly int renderWidth;
+        private object[] lockBuffer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Device"/> class.
@@ -40,10 +41,16 @@ namespace SoftEngine
             renderHeight = bmp.PixelHeight;
 
             // the back buffer size is equal to the number of pixels to draw
-            // on screen (width*height) * 4 (R,G,B & Alpha values).
-            backBuffer = new byte[this.bmp.PixelWidth * this.bmp.PixelHeight * 4];
-            depthBuffer = new float[bmp.PixelWidth * bmp.PixelHeight];
+            // on screen (width*height) * 4 (R,G,B & Alpha values). 
+            backBuffer = new byte[renderWidth * renderHeight * 4];
+            depthBuffer = new float[renderWidth * renderHeight];
+            lockBuffer = new object[renderWidth * renderHeight];
+            for (var i = 0; i < lockBuffer.Length; i++)
+            {
+                lockBuffer[i] = new object();
+            }
         }
+
 
         /// <summary>
         /// This method is called to clear the back buffer with a specific color
@@ -97,18 +104,21 @@ namespace SoftEngine
             var index = (x + y * renderWidth);
             var index4 = index * 4;
 
-
-            if (depthBuffer[index] < z)
+            // Protecting our buffer against threads concurrencies
+            lock (lockBuffer[index])
             {
-                return;
+                if (depthBuffer[index] < z)
+                {
+                    return; // Discard
+                }
+
+                depthBuffer[index] = z;
+
+                backBuffer[index4] = (byte)(color.Blue * 255);
+                backBuffer[index4 + 1] = (byte)(color.Green * 255);
+                backBuffer[index4 + 2] = (byte)(color.Red * 255);
+                backBuffer[index4 + 3] = (byte)(color.Alpha * 255);
             }
-
-            depthBuffer[index] = z;
-
-            backBuffer[index4] = (byte)(color.Blue * 255);
-            backBuffer[index4 + 1] = (byte)(color.Green * 255);
-            backBuffer[index4 + 2] = (byte)(color.Red * 255);
-            backBuffer[index4 + 3] = (byte)(color.Alpha * 255);
         }
 
         /// <summary>
@@ -202,20 +212,9 @@ namespace SoftEngine
             else
                 dP1P3 = 0;
 
-            // First case where triangles are like that:
-            // P1
-            // -
-            // -- 
-            // - -
-            // -  -
-            // -   - P2
-            // -  -
-            // - -
-            // -
-            // P3
             if (dP1P2 > dP1P3)
             {
-                for (var y = (int)p1.Y; y <= (int)p3.Y; y++)
+                Parallel.For((int)p1.Y, (int)p3.Y + 1, y =>
                 {
                     if (y < p2.Y)
                     {
@@ -225,22 +224,11 @@ namespace SoftEngine
                     {
                         ProcessScanLine(y, p1, p3, p2, p3, color);
                     }
-                }
+                });
             }
-            // First case where triangles are like that:
-            //       P1
-            //        -
-            //       -- 
-            //      - -
-            //     -  -
-            // P2 -   - 
-            //     -  -
-            //      - -
-            //        -
-            //       P3
             else
             {
-                for (var y = (int)p1.Y; y <= (int)p3.Y; y++)
+                Parallel.For((int)p1.Y, (int)p3.Y + 1, y =>
                 {
                     if (y < p2.Y)
                     {
@@ -250,7 +238,7 @@ namespace SoftEngine
                     {
                         ProcessScanLine(y, p2, p3, p1, p3, color);
                     }
-                }
+                });
             }
         }
 

@@ -1,4 +1,5 @@
 ﻿using SharpDX;
+using System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
@@ -16,6 +17,7 @@ namespace SoftEngine
         private Device _device;
         private Mesh[] _meshes;
         private Camera _camera = new Camera();
+        DateTime previousDate;
 
         public MainPage()
         {
@@ -43,8 +45,15 @@ namespace SoftEngine
             CompositionTarget.Rendering += CompositionTarget_Rendering;
         }
 
-        private void CompositionTarget_Rendering(object sender, object e)
+        void CompositionTarget_Rendering(object sender, object e)
         {
+            // Manage Fps
+            var now = DateTime.Now;
+            var currentFps = 1000.0 / (now - previousDate).TotalMilliseconds;
+            previousDate = now;
+
+            fps.Text = string.Format("{0:0.00} fps", currentFps);
+
             _device.Clear(0, 0, 0, 255);
 
             foreach (var mesh in _meshes)
